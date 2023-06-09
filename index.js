@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')('sk_test_51NEVNSIL22UQzT5CaIzKIRp9SuHhcyfdokzCOnVcr6My6lyaZNBnQBIpsvjB0rA6rEXizbocu7CGYznnns0WrwdO00AqcPv8oM')
 const app = express()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000
@@ -56,6 +57,11 @@ async function run() {
 
         const instructorCollection = client.db('magicdb').collection('InstructorCollection')
         const cartCollection = client.db('magicdb').collection('cart')
+        const paymentCollection = client.db('magicdb').collection('payment')
+
+
+
+
         // jwt 
         app.post('/jwt', async (req, res) => {
             const user = req.body
@@ -152,6 +158,30 @@ async function run() {
             const user = req.body
             const result = await userCollection.insertOne(user)
             res.send(result)
+        })
+        // payment intent 
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body
+            const amount = parseInt(price * 100)
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            })
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        })
+
+        // making payment collection and delete card data
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const insertResult = await paymentCollection.insertOne(payment);
+
+            const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+            const deleteResult = await cartCollection.deleteMany(query)
+
+            res.send({ insertResult, deleteResult });
         })
 
 
