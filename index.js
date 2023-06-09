@@ -15,6 +15,27 @@ app.use(express.json())
 
 const uri = `mongodb+srv://${process.env.Db_User_Name}:${process.env.Db_Pass}@cluster0.5niozn3.mongodb.net/?retryWrites=true&w=majority`;
 
+const verifyJwt = (req, res, next) => {
+    const authorization = req.headers.authorization
+    if (!authorization) {
+        return res.status(401).send({ error: true, message: 'Token Did not found' })
+    }
+    const token = authorization.split(' ')[1]
+    jwt.verify(token, process.env.token, (error, decoded) => {
+        if (error) {
+            return res.status(403).send({ error: true, message: 'Token didnt match while verifying ' })
+        }
+        req.decoded = decoded
+        next()
+    })
+}
+
+
+
+
+
+
+
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
     serverApi: {
@@ -35,10 +56,18 @@ async function run() {
 
         const instructorCollection = client.db('magicdb').collection('InstructorCollection')
         const cartCollection = client.db('magicdb').collection('cart')
+        // jwt 
+        app.post('/jwt', async (req, res) => {
+            const user = req.body
+            console.log(user);
+            const token = await jwt.sign(user, process.env.token, {
+                expiresIn: '1h'
+            })
+            res.send({ token })
+        })
 
 
-
-        // carts related Api
+        // carts related Api (selected class in cart)
         app.post('/carts', async (req, res) => {
             try {
                 const selectedUser = req.body;
@@ -55,6 +84,24 @@ async function run() {
         });
 
 
+
+
+        app.get('/carts', async (req, res) => {
+            const email = req.query.email
+            const query = { email: email }
+            const result = await cartCollection.find(query).toArray()
+            res.send(result)
+        })
+
+
+        app.delete('/carts/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await cartCollection.deleteOne(query)
+            res.send(result)
+        })
+
+
         // InstructorRelated API
         app.get('/instructors', async (req, res) => {
             const result = await instructorCollection.find().toArray()
@@ -65,10 +112,39 @@ async function run() {
         // Class Related API
 
         app.get('/classes', async (req, res) => {
-            const result = await classCollection.find().toArray()
+
+            const instructorEmail = req.query.email
+            let query = {}
+            if (instructorEmail) {
+                query = { email: instructorEmail }
+            }
+            const result = await classCollection.find(query).toArray()
+            res.send(result)
+        })
+        app.post('/classes', async (req, res) => {
+            const classInfo = req.body
+            const result = await classCollection.insertOne(classInfo)
             res.send(result)
         })
 
+        // update class
+        app.put('/classes/:id', async (req, res) => {
+            const id = req.params.id
+            const infoFromClient = req.body
+            console.log(infoFromClient);
+            const query = { _id: new ObjectId(id) }
+            const options = { upsert: true }
+            const update = {
+                $set: {
+                    name: infoFromClient.name,
+                    price: infoFromClient.price,
+                    available_seats: infoFromClient.available_seats,
+
+                }
+            }
+            const result = await classCollection.updateOne(query, update, options)
+            res.json(result)
+        })
 
 
         // user related API
