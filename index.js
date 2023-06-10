@@ -77,8 +77,10 @@ async function run() {
         app.post('/carts', async (req, res) => {
             try {
                 const selectedUser = req.body;
-                selectedUser._id = new ObjectId(); // Generate a new unique _id value
+                // Generate a new unique _id value
+
                 const result = await cartCollection.insertOne(selectedUser);
+
                 res.send(result);
             } catch (error) {
                 if (error.code === 11000) {
@@ -133,6 +135,22 @@ async function run() {
             res.send(result)
         })
 
+        // update classs info
+        app.put('/updateSeatNumber', async (req, res) => {
+            const updateInfo = req.body
+            const id = updateInfo._id
+            console.log(id);
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    available_seats: updateInfo.available_seats
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateDoc,)
+            res.send(result)
+        })
+
+
         // update class
         app.put('/classes/:id', async (req, res) => {
             const id = req.params.id
@@ -176,10 +194,12 @@ async function run() {
         // making payment collection and delete card data
         app.post('/payments', async (req, res) => {
             const payment = req.body;
+            console.log(payment);
+            console.log(payment.itemId);
             const insertResult = await paymentCollection.insertOne(payment);
 
-            const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
-            const deleteResult = await cartCollection.deleteMany(query)
+            const query = { _id: (payment.itemId) }
+            const deleteResult = await cartCollection.deleteOne(query)
 
             res.send({ insertResult, deleteResult });
         })
