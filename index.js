@@ -175,9 +175,23 @@ async function run() {
         // user related API
         app.post('/user', async (req, res) => {
             const user = req.body
+            const query = { email: user?.email }
+            const alreadyExist = await userCollection.findOne(query)
+            if (alreadyExist) {
+                return res.send({ message: 'user already exist' })
+            }
+
             const result = await userCollection.insertOne(user)
             res.send(result)
         })
+
+
+        app.get('/users', async (req, res) => {
+            const result = await userCollection.find().toArray()
+            res.send(result)
+        })
+
+
         // payment intent 
         app.post('/create-payment-intent', async (req, res) => {
             const { price } = req.body
