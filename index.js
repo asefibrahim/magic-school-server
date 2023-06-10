@@ -104,7 +104,7 @@ async function run() {
 
         app.delete('/carts/:id', async (req, res) => {
             const id = req.params.id
-            const query = { _id: new ObjectId(id) }
+            const query = { _id: (id) }
             const result = await cartCollection.deleteOne(query)
             res.send(result)
         })
@@ -139,11 +139,12 @@ async function run() {
         app.put('/updateSeatNumber', async (req, res) => {
             const updateInfo = req.body
             const id = updateInfo._id
-            console.log(id);
+            console.log(updateInfo.enrolled_student);
             const filter = { _id: new ObjectId(id) }
             const updateDoc = {
                 $set: {
-                    available_seats: updateInfo.available_seats
+                    available_seats: updateInfo.available_seats,
+                    enrolled_student: updateInfo.enrolled_student
                 }
             }
             const result = await classCollection.updateOne(filter, updateDoc,)
@@ -205,7 +206,10 @@ async function run() {
         })
 
         app.get('/payments', async (req, res) => {
-            const result = await paymentCollection.find().toArray()
+            const email = req.query.email
+            const filter = { email: email }
+
+            const result = await paymentCollection.find(filter).toArray()
             res.send(result)
         })
 
