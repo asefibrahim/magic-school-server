@@ -185,6 +185,18 @@ async function run() {
             const result = await classCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
+        app.patch('/classes/denied/:id', async (req, res) => {
+
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateInfo = {
+                $set: {
+                    status: 'denied'
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateInfo)
+            res.send(result)
+        })
 
         // user related API
         app.post('/user', async (req, res) => {
