@@ -152,7 +152,7 @@ async function run() {
         })
 
 
-        // update class
+
         app.put('/classes/:id', async (req, res) => {
             const id = req.params.id
             const infoFromClient = req.body
@@ -171,6 +171,20 @@ async function run() {
             res.json(result)
         })
 
+        // update approved status 
+
+        app.patch('/classes/:id', async (req, res) => {
+
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: 'approved'
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
 
         // user related API
         app.post('/user', async (req, res) => {
@@ -188,6 +202,32 @@ async function run() {
 
         app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray()
+            res.send(result)
+        })
+
+        // make Admin
+
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+        //  get the admin
+
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email
+
+
+            const query = { email: email }
+            const user = await userCollection.findOne(query)
+            const result = { admin: user?.role === 'admin' }
             res.send(result)
         })
 
