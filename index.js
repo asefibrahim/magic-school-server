@@ -194,8 +194,8 @@ async function run() {
         // making payment collection and delete card data
         app.post('/payments', async (req, res) => {
             const payment = req.body;
-            console.log(payment);
-            console.log(payment.itemId);
+
+
             const insertResult = await paymentCollection.insertOne(payment);
 
             const query = { _id: (payment.itemId) }
@@ -204,6 +204,10 @@ async function run() {
             res.send({ insertResult, deleteResult });
         })
 
+        app.get('/payments', async (req, res) => {
+            const result = await paymentCollection.find().toArray()
+            res.send(result)
+        })
 
 
         // Send a ping to confirm a successful connection
