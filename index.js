@@ -78,7 +78,7 @@ async function run() {
             try {
                 const selectedUser = req.body;
                 // Generate a new unique _id value
-
+                selectedUser._id = new ObjectId();
                 const result = await cartCollection.insertOne(selectedUser);
 
                 res.send(result);
@@ -185,6 +185,7 @@ async function run() {
             const result = await classCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
+        // denied status
         app.patch('/classes/denied/:id', async (req, res) => {
 
             const id = req.params.id
@@ -192,6 +193,20 @@ async function run() {
             const updateInfo = {
                 $set: {
                     status: 'denied'
+                }
+            }
+            const result = await classCollection.updateOne(filter, updateInfo)
+            res.send(result)
+        })
+        // send feedback
+        app.patch('/classes/feedback/:id', async (req, res) => {
+            const feedback = req.body
+            console.log(feedback);
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const updateInfo = {
+                $set: {
+                    feedback: feedback.text
                 }
             }
             const result = await classCollection.updateOne(filter, updateInfo)
