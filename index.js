@@ -16,18 +16,21 @@ app.use(express.json())
 
 const uri = `mongodb+srv://${process.env.Db_User_Name}:${process.env.Db_Pass}@cluster0.5niozn3.mongodb.net/?retryWrites=true&w=majority`;
 
-const verifyJwt = (req, res, next) => {
-    const authorization = req.headers.authorization
+const verifyJWT = (req, res, next) => {
+    const authorization = req.headers.authorization;
+
     if (!authorization) {
-        return res.status(401).send({ error: true, message: 'Token Did not found' })
+        return res.status(401).send({ error: true, message: 'unauthorized access' });
     }
-    const token = authorization.split(' ')[1]
-    jwt.verify(token, process.env.token, (error, decoded) => {
-        if (error) {
-            return res.status(403).send({ error: true, message: 'Token didnt match while verifying ' })
+    // bearer token
+    const token = authorization.split(' ')[1];
+
+    jwt.verify(token, process.env.token, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ error: true, message: 'unauthorized access' })
         }
-        req.decoded = decoded
-        next()
+        req.decoded = decoded;
+        next();
     })
 }
 
@@ -50,7 +53,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
 
         const userCollection = client.db('magicdb').collection('user')
         const classCollection = client.db('magicdb').collection('classColloection')
@@ -59,24 +62,51 @@ async function run() {
         const cartCollection = client.db('magicdb').collection('cart')
         const paymentCollection = client.db('magicdb').collection('payment')
 
-
+        // verify Admin
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await userCollection.findOne(query);
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        }
+        // verify Instructor
+        const verifyInstructor = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await userCollection.findOne(query);
+            console.log(user);
+            if (user?.role !== 'instructor') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        }
 
 
         // jwt 
-        app.post('/jwt', async (req, res) => {
+        app.post('/jwt', (req, res) => {
             const user = req.body
             console.log(user);
-            const token = await jwt.sign(user, process.env.token, {
+            const token = jwt.sign(user, process.env.token, {
                 expiresIn: '1h'
             })
             res.send({ token })
         })
+        // get instructor data
 
+        app.get('/instructors', async (req, res) => {
+            const result = await instructorCollection.find().toArray()
+            res.send(result)
+        })
 
         // carts related Api (selected class in cart)
         app.post('/carts', async (req, res) => {
             try {
                 const selectedUser = req.body;
+
+                console.log(selectedUser);
                 // Generate a new unique _id value
                 selectedUser._id = new ObjectId();
                 const result = await cartCollection.insertOne(selectedUser);
@@ -94,17 +124,34 @@ async function run() {
 
 
 
-        app.get('/carts', async (req, res) => {
+        app.get('/carts', verifyJWT, async (req, res) => {
             const email = req.query.email
+
+            if (!email) {
+                res.send([]);
+            }
+
+            const decodedEmail = req.decoded.email;
+            console.log(decodedEmail);
+            if (email !== decodedEmail) {
+                return res.status(403).send({ error: true, message: 'forbidden access' })
+            }
+
+
+
+
             const query = { email: email }
             const result = await cartCollection.find(query).toArray()
             res.send(result)
         })
 
 
-        app.delete('/carts/:id', async (req, res) => {
+        app.delete('/carts/delete/:id', async (req, res) => {
             const id = req.params.id
-            const query = { _id: (id) }
+            console.log(id);
+            const query = { _id: new ObjectId(id) }
+
+
             const result = await cartCollection.deleteOne(query)
             res.send(result)
         })
@@ -122,25 +169,29 @@ async function run() {
         app.get('/classes', async (req, res) => {
 
             const instructorEmail = req.query.email
+
+
+
             let query = {}
             if (instructorEmail) {
                 query = { email: instructorEmail }
             }
-            const result = await classCollection.find(query).toArray()
+            const result = await classCollection.find(query).sort({ enrolled_student: -1 }).toArray()
             res.send(result)
         })
-        app.post('/classes', async (req, res) => {
+        app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
             const classInfo = req.body
             const result = await classCollection.insertOne(classInfo)
             res.send(result)
         })
 
         // update classs info
-        app.put('/updateSeatNumber', async (req, res) => {
+        app.patch('/updateSeatNumber', async (req, res) => {
             const updateInfo = req.body
-            const id = updateInfo._id
+            const classId = updateInfo.classId
+            console.log(updateInfo);
             console.log(updateInfo.enrolled_student);
-            const filter = { _id: new ObjectId(id) }
+            const filter = { classId: classId }
             const updateDoc = {
                 $set: {
                     available_seats: updateInfo.available_seats,
@@ -236,7 +287,7 @@ async function run() {
         })
 
 
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
             const result = await userCollection.find().toArray()
             res.send(result)
         })
@@ -310,7 +361,7 @@ async function run() {
 
             const insertResult = await paymentCollection.insertOne(payment);
 
-            const query = { _id: (payment.itemId) }
+            const query = { _id: new ObjectId(payment.itemId) }
             const deleteResult = await cartCollection.deleteOne(query)
 
             res.send({ insertResult, deleteResult });
